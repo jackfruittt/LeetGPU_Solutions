@@ -10,13 +10,21 @@ My solutions to [LeetGPU](https://www.leetgpu.com/) challenges - a platform for 
 - Handles edge cases for non-aligned array sizes
 - **Performance**: 25.1 percentile (T4), 81.5 percentile (B200)
 
-### 2. Matrix Multiplication (`matrix_multiplication.cu`)
+### 2. Matrix Addition (`matrix_addtion.cu`)
+- Efficient matrix addition using CUDA with 2D grid/block configuration
+- **Two solutions optimized for different hardware**:
+  - B200 optimized solution: 71.2 percentile
+  - T4 optimized solution: 52 percentile
+- 2D thread indexing for intuitive row/column mapping
+- Boundary checking for arbitrary matrix dimensions
+
+### 3. Matrix Multiplication (`matrix_multiplication.cu`)
 - Tiled matrix multiplication using shared memory
 - 32x32 tile size for efficient memory access patterns
 - Reduces global memory accesses through shared memory caching
 - **Performance**: 76.9 percentile (T4), 38.5 percentile (B200)
 
-### 3. Matrix Transpose (`matrix_transpose.cu`)
+### 4. Matrix Transpose (`matrix_transpose.cu`)
 - Efficient matrix transpose using shared memory tiling
 - 32x32 tile size with bank conflict avoidance (TILE + 1 padding)
 - Block row striding (BR=2) to maximize thread utilization
