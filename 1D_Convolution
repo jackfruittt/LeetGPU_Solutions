@@ -1,0 +1,53 @@
+#include <cuda_runtime.h>
+
+#define MAX_KERNEL 2048
+#define TILE 512
+#define CEIL_DIV(a, b) (((a) + (b) - 1) / (b))
+
+__constant__ float c_kernel[MAX_KERNEL];
+
+__global__ void convolution_1d_kernel(const float* __restrict__ input, const float* __restrict__ kernel, float* __restrict__ output,
+                                    int input_size, int kernel_size)
+{
+    // Kernel weights broadcast to all threads in a warp via a single read
+    extern __shared__ float s_input[];
+
+    const int tid = threadIdx.x;
+    const int outIdx = blockIdx.x * blockDim.x + tid;
+    const int inputBase = blockIdx.x * blockDim.x;
+    const int sharedLen = blockDim.x + kernel_size - 1;
+
+    // Cooperatively load input tile + right-side halo into shared memory
+    // Strided by blockDim.x to keep global loads coalesced
+    for (int i = tid; i < sharedLen; i += blockDim.x) {
+        int gIdx = inputBase + i;
+        s_input[i] = (gIdx < input_size) ? __ldg(&input[gIdx]) : 0.0f;
+    }
+    __syncthreads();
+
+    // Each thread computes exactly one output element.
+    if (outIdx < input_size - kernel_size + 1) {
+        float pVal = 0.0f;
+        #pragma unroll 8 // exposes ILP; keeps FP pipeline saturated
+        for (int j = 0; j < kernel_size; ++j) {
+            pVal = __fmaf_rn(s_input[tid + j], c_kernel[j], pVal);
+        }
+        output[outIdx] = pVal;
+    }
+}
+
+// input, kernel, output are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(const float* input, const float* kernel, float* output, int input_size, 
+                      int kernel_size) {
+    
+    // Upload convolution weights to constant memory before dispatch
+    cudaMemcpyToSymbol(c_kernel, kernel, (size_t)kernel_size * sizeof(float), 0, cudaMemcpyDeviceToDevice);
+    const int output_size = input_size - kernel_size + 1;
+    const int threadsPerBlock = TILE;
+    const int blocksPerGrid = CEIL_DIV(output_size, threadsPerBlock);
+    const size_t sharedBytes = (size_t)(threadsPerBlock + kernel_size - 1) * sizeof(float);
+
+    convolution_1d_kernel<<<blocksPerGrid, threadsPerBlock, sharedBytes>>>(input, kernel, output, input_size, kernel_size);
+
+    cudaDeviceSynchronize();
+}

@@ -31,6 +31,13 @@ My solutions to [LeetGPU](https://www.leetgpu.com/) challenges - a platform for 
 - Coalesced memory access for both reads and writes
 - **Performance**: 85.0 percentile (T4), 86.6 percentile (B200)
 
+### 5. 1D Convolution (`1D_Convolution`)
+- Constant memory for kernel weights with efficient broadcasting
+- Shared memory tiling with halo regions for input data
+- Coalesced global memory loads using `__ldg`
+- Loop unrolling (8x) and fused multiply-add (`__fmaf_rn`) for instruction-level parallelism
+- **Performance**: 91.5 percentile (T4), 75.0 percentile (B200)
+
 ## Environment
 
 All solutions are tested on:
